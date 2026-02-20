@@ -1,4 +1,5 @@
 sample_id,treatment_bam,control_bam
-TG_rep1,/path/to/TG_rep1.clean.bam,/path/to/Input_rep1.clean.bam
-TG_rep2,/path/to/TG_rep2.clean.bam,/path/to/Input_rep2.clean.bam
-WT_rep1,/path/to/WT_rep1.clean.bam,/path/to/Input_rep1.clean.bam
+GAR0968,/ictstr01/groups/idc/projects/uhlenhaut/jiang/pipelines/nf-chipfilter/chipfilter_output/GAR0968_S40_L006_R.clean.bam,/ictstr01/groups/idc/projects/uhlenhaut/jiang/pipelines/nf-chipfilter/chipfilter_output/SRR7416886.clean.bam
+GAR0979,/ictstr01/groups/idc/projects/uhlenhaut/jiang/pipelines/nf-chipfilter/chipfilter_output/GAR0979_S58_L008_R.clean.bam,/ictstr01/groups/idc/projects/uhlenhaut/jiang/pipelines/nf-chipfilter/chipfilter_output/SRR7416886.clean.bam
+GAR1585,/ictstr01/groups/idc/projects/uhlenhaut/jiang/pipelines/nf-chipfilter/chipfilter_output/GAR1585_S9_L001_R.clean.bam,/ictstr01/groups/idc/projects/uhlenhaut/jiang/pipelines/nf-chipfilter/chipfilter_output/SRR7416886.clean.bam
+GAR1586,/ictstr01/groups/idc/projects/uhlenhaut/jiang/pipelines/nf-chipfilter/chipfilter_output/GAR1586_S10_L001_R.clean.bam,/ictstr01/groups/idc/projects/uhlenhaut/jiang/pipelines/nf-chipfilter/chipfilter_output/SRR7416886.clean.bam
