@@ -16,6 +16,10 @@ process macs3_with_control {
 
   output:
     tuple val(sample_id), path("${sample_id}_peaks.*Peak")
+    path "${sample_id}_peaks.xls"
+    path "${sample_id}_summits.bed", optional: true
+    path "${sample_id}_treat_pileup.bdg", optional: true
+    path "${sample_id}_control_lambda.bdg", optional: true
 
   script:
   def keep_dup = params.keep_dup ?: 'all'
@@ -60,6 +64,10 @@ process macs3_no_control {
 
   output:
     tuple val(sample_id), path("${sample_id}_peaks.*Peak")
+    path "${sample_id}_peaks.xls"
+    path "${sample_id}_summits.bed", optional: true
+    path "${sample_id}_treat_pileup.bdg", optional: true
+    path "${sample_id}_control_lambda.bdg", optional: true
 
   script:
   def keep_dup = params.keep_dup ?: 'all'
