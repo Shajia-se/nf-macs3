@@ -115,7 +115,7 @@ workflow {
         tuple(sid, file(row.treatment_bam.toString()), file(row.control_bam.toString()))
       }
       .filter { sid, tbam, cbam ->
-        !file("${outdir}/${sid}_peaks.${peak_ext}").exists()
+        !(file("${outdir}/${sid}_peaks.${peak_ext}").exists() && file("${outdir}/${sid}_peaks.xls").exists())
       }
 
     macs3_with_control(with_control)
@@ -128,7 +128,7 @@ workflow {
           tuple(sid, file(row.treatment_bam.toString()))
         }
         .filter { sid, tbam ->
-          !file("${outdir}/${sid}_peaks.${peak_ext}").exists()
+          !(file("${outdir}/${sid}_peaks.${peak_ext}").exists() && file("${outdir}/${sid}_peaks.xls").exists())
         }
       macs3_no_control(no_control)
     }
@@ -138,7 +138,7 @@ workflow {
       .ifEmpty { exit 1, "ERROR: No treatment BAM found under ${params.chipfilter_output}. Provide --macs3_samplesheet for treatment/control mode." }
       .map { bam -> tuple(bam.simpleName, bam) }
       .filter { sid, bam ->
-        !file("${outdir}/${sid}_peaks.${peak_ext}").exists()
+        !(file("${outdir}/${sid}_peaks.${peak_ext}").exists() && file("${outdir}/${sid}_peaks.xls").exists())
       }
 
     if (!allow_no_control) {
