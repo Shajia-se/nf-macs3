@@ -22,6 +22,10 @@ process macs3_with_control {
   def call_summits = (params.call_summits == null || params.call_summits) ? '--call-summits' : ''
   """
   set -eux
+  mkdir -p tmp
+  export TMPDIR=\$PWD/tmp
+  export TEMP=\$PWD/tmp
+  export TMP=\$PWD/tmp
 
   if [[ "${params.seq}" == "paired" ]]; then
     FORMAT="BAMPE"
@@ -62,6 +66,10 @@ process macs3_no_control {
   def call_summits = (params.call_summits == null || params.call_summits) ? '--call-summits' : ''
   """
   set -eux
+  mkdir -p tmp
+  export TMPDIR=\$PWD/tmp
+  export TEMP=\$PWD/tmp
+  export TMP=\$PWD/tmp
 
   if [[ "${params.seq}" == "paired" ]]; then
     FORMAT="BAMPE"
