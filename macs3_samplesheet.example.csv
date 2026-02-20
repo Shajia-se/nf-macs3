@@ -1,0 +1,4 @@
+sample_id,treatment_bam,control_bam
+TG_rep1,/path/to/TG_rep1.clean.bam,/path/to/Input_rep1.clean.bam
+TG_rep2,/path/to/TG_rep2.clean.bam,/path/to/Input_rep2.clean.bam
+WT_rep1,/path/to/WT_rep1.clean.bam,/path/to/Input_rep1.clean.bam
