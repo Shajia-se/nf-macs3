@@ -188,7 +188,7 @@ workflow {
         def names = hits.collect { it.name }.join(', ')
         throw new IllegalArgumentException("Multiple clean BAM files matched sample_id '${sid}': ${names}")
       }
-      file(hits[0].absolutePath)
+      file(hits[0].toString())
     }
 
     def autoWithControl = []
