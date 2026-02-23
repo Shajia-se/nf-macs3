@@ -132,6 +132,106 @@ workflow {
         }
       macs3_no_control(no_control)
     }
+  } else if (params.samples_master) {
+    def master = file(params.samples_master)
+    assert master.exists() : "samples_master not found: ${params.samples_master}"
+
+    def header = null
+    def records = []
+    master.eachLine { line, n ->
+      if (!line?.trim()) return
+      def cols = line.split(',', -1)*.trim()
+      if (n == 1) {
+        header = cols
+      } else {
+        def rec = [:]
+        header.eachWithIndex { h, i -> rec[h] = i < cols.size() ? cols[i] : '' }
+        records << rec
+      }
+    }
+
+    assert header : "samples_master header not found: ${params.samples_master}"
+    assert header.contains('sample_id') : "samples_master missing required column: sample_id"
+    assert header.contains('is_control') : "samples_master missing required column: is_control"
+    assert header.contains('control_id') : "samples_master missing required column: control_id"
+
+    def isEnabled = { rec ->
+      def v = rec.enabled?.toString()?.trim()?.toLowerCase()
+      (v == null || v == '' || v == 'true')
+    }
+    def isControl = { rec ->
+      rec.is_control?.toString()?.trim()?.toLowerCase() == 'true'
+    }
+    def isChip = { rec ->
+      def lt = rec.library_type?.toString()?.trim()?.toLowerCase()
+      !isControl(rec) && (lt == null || lt == '' || lt == 'chip')
+    }
+
+    def enabledRecords = records.findAll { rec -> isEnabled(rec) }
+    def controlRecords = enabledRecords.findAll { rec -> isControl(rec) }
+    def controlIds = controlRecords.collect { it.sample_id?.toString()?.trim() }.findAll { it }
+    def controlSet = controlIds as Set
+    def defaultControl = (controlIds.size() == 1) ? controlIds[0] : null
+
+    def bamDir = file(params.chipfilter_output)
+    assert bamDir.exists() : "chipfilter_output directory not found: ${params.chipfilter_output}"
+
+    def resolveCleanBam = { sid ->
+      def hits = bamDir.listFiles()?.findAll { f ->
+        f.isFile() && f.name.endsWith('.clean.bam') && f.name.startsWith("${sid}")
+      } ?: []
+
+      if (hits.isEmpty()) {
+        throw new IllegalArgumentException("No clean BAM found for sample_id '${sid}' under: ${params.chipfilter_output}")
+      }
+      if (hits.size() > 1) {
+        def names = hits.collect { it.name }.join(', ')
+        throw new IllegalArgumentException("Multiple clean BAM files matched sample_id '${sid}': ${names}")
+      }
+      file(hits[0].absolutePath)
+    }
+
+    def autoWithControl = []
+    def autoNoControl = []
+
+    enabledRecords.findAll { rec -> isChip(rec) }.each { rec ->
+      def sid = rec.sample_id?.toString()?.trim()
+      if (!sid) return
+
+      def treatBam = resolveCleanBam(sid)
+      def cid = rec.control_id?.toString()?.trim()
+      if (!cid && defaultControl) cid = defaultControl
+
+      if (cid) {
+        assert controlSet.contains(cid) : "control_id '${cid}' for sample '${sid}' is not an enabled control sample in samples_master"
+        def controlBam = resolveCleanBam(cid)
+        autoWithControl << tuple(sid, treatBam, controlBam)
+      } else {
+        if (!allow_no_control) {
+          throw new IllegalArgumentException("No control_id found for sample '${sid}'. Add control_id in samples_master or set --allow_no_control true.")
+        }
+        autoNoControl << tuple(sid, treatBam)
+      }
+    }
+
+    def with_control_ch = Channel.fromList(autoWithControl)
+    if (!allow_no_control) {
+      with_control_ch = with_control_ch.ifEmpty { exit 1, "ERROR: No treatment/control pairs generated from samples_master: ${params.samples_master}" }
+    }
+    with_control_ch = with_control_ch.filter { sid, tbam, cbam ->
+        !(file("${outdir}/${sid}_peaks.${peak_ext}").exists() && file("${outdir}/${sid}_peaks.xls").exists())
+      }
+
+    macs3_with_control(with_control_ch)
+
+    if (allow_no_control) {
+      def no_control_ch = Channel
+        .fromList(autoNoControl)
+        .filter { sid, tbam ->
+          !(file("${outdir}/${sid}_peaks.${peak_ext}").exists() && file("${outdir}/${sid}_peaks.xls").exists())
+        }
+      macs3_no_control(no_control_ch)
+    }
   } else {
     def treat_only = Channel
       .fromPath("${params.chipfilter_output}/*.clean.bam", checkIfExists: true)
