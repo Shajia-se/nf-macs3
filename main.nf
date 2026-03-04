@@ -2,20 +2,24 @@
 nextflow.enable.dsl=2
 
 def macs3_output = params.macs3_output ?: "macs3_output"
-def allow_no_control = (params.allow_no_control == null) ? false : params.allow_no_control
 
-process macs3_with_control {
-  tag "${sample_id}"
+def resolveBaseDir = { p ->
+  def fp = file(p.toString())
+  fp.isAbsolute() ? fp : file("${params.project_folder}/${p}")
+}
+
+process macs3_callpeak {
+  tag "${profile_name}:${sample_id}"
   stageInMode 'symlink'
   stageOutMode 'move'
 
-  publishDir "${params.project_folder}/${macs3_output}", mode: 'copy'
+  publishDir { "${params.project_folder}/${macs3_output}/${profile_name}" }, mode: 'copy'
 
   input:
-    tuple val(sample_id), path(treat_bam), path(control_bam)
+    tuple val(profile_name), val(qval), val(sample_id), path(treat_bam), path(control_bam)
 
   output:
-    tuple val(sample_id), path("${sample_id}_peaks.*Peak")
+    tuple val(profile_name), val(sample_id), path("${sample_id}_peaks.*Peak")
     path "${sample_id}_peaks.xls"
     path "${sample_id}_summits.bed", optional: true
     path "${sample_id}_treat_pileup.bdg", optional: true
@@ -41,54 +45,7 @@ process macs3_with_control {
     -t ${treat_bam} \\
     -c ${control_bam} \\
     -f \$FORMAT \\
-    -q ${params.qvalue} \\
-    --keep-dup ${keep_dup} \\
-    -g ${params.genome_size} \\
-    -n ${sample_id} \\
-    -B \\
-    ${call_summits} \\
-    --outdir . \\
-    ${params.peak_type ?: ''}
-  """
-}
-
-process macs3_no_control {
-  tag "${sample_id}"
-  stageInMode 'symlink'
-  stageOutMode 'move'
-
-  publishDir "${params.project_folder}/${macs3_output}", mode: 'copy'
-
-  input:
-    tuple val(sample_id), path(treat_bam)
-
-  output:
-    tuple val(sample_id), path("${sample_id}_peaks.*Peak")
-    path "${sample_id}_peaks.xls"
-    path "${sample_id}_summits.bed", optional: true
-    path "${sample_id}_treat_pileup.bdg", optional: true
-    path "${sample_id}_control_lambda.bdg", optional: true
-
-  script:
-  def keep_dup = params.keep_dup ?: 'all'
-  def call_summits = (params.call_summits == null || params.call_summits) ? '--call-summits' : ''
-  """
-  set -eux
-  mkdir -p tmp
-  export TMPDIR=\$PWD/tmp
-  export TEMP=\$PWD/tmp
-  export TMP=\$PWD/tmp
-
-  if [[ "${params.seq}" == "paired" ]]; then
-    FORMAT="BAMPE"
-  else
-    FORMAT="BAM"
-  fi
-
-  macs3 callpeak \\
-    -t ${treat_bam} \\
-    -f \$FORMAT \\
-    -q ${params.qvalue} \\
+    -q ${qval} \\
     --keep-dup ${keep_dup} \\
     -g ${params.genome_size} \\
     -n ${sample_id} \\
@@ -101,37 +58,26 @@ process macs3_no_control {
 
 workflow {
   def peak_ext = (params.peak_type ?: '').contains('--broad') ? 'broadPeak' : 'narrowPeak'
-  def outdir = "${params.project_folder}/${macs3_output}"
+  def outBase = resolveBaseDir(macs3_output)
 
+  def profiles = [
+    [profile_name: 'idr_q0.1',     qval: (params.idr_qvalue ?: 0.1).toString()],
+    [profile_name: 'strict_q0.01', qval: (params.strict_qvalue ?: 0.01).toString()]
+  ]
+
+  def rows
   if (params.macs3_samplesheet) {
-    def rows = Channel
+    rows = Channel
       .fromPath(params.macs3_samplesheet, checkIfExists: true)
       .splitCsv(header: true)
-
-    def with_control = rows
-      .filter { row -> row.control_bam && row.control_bam.toString().trim() }
       .map { row ->
-        def sid = row.sample_id?.toString()?.trim() ?: file(row.treatment_bam.toString()).simpleName
-        tuple(sid, file(row.treatment_bam.toString()), file(row.control_bam.toString()))
+        assert row.sample_id && row.treatment_bam && row.control_bam : "macs3_samplesheet must contain: sample_id,treatment_bam,control_bam"
+        tuple(
+          row.sample_id.toString().trim(),
+          file(row.treatment_bam.toString().trim()),
+          file(row.control_bam.toString().trim())
+        )
       }
-      .filter { sid, tbam, cbam ->
-        !(file("${outdir}/${sid}_peaks.${peak_ext}").exists() && file("${outdir}/${sid}_peaks.xls").exists())
-      }
-
-    macs3_with_control(with_control)
-
-    if (allow_no_control) {
-      def no_control = rows
-        .filter { row -> !(row.control_bam && row.control_bam.toString().trim()) }
-        .map { row ->
-          def sid = row.sample_id?.toString()?.trim() ?: file(row.treatment_bam.toString()).simpleName
-          tuple(sid, file(row.treatment_bam.toString()))
-        }
-        .filter { sid, tbam ->
-          !(file("${outdir}/${sid}_peaks.${peak_ext}").exists() && file("${outdir}/${sid}_peaks.xls").exists())
-        }
-      macs3_no_control(no_control)
-    }
   } else if (params.samples_master) {
     def master = file(params.samples_master)
     assert master.exists() : "samples_master not found: ${params.samples_master}"
@@ -173,7 +119,7 @@ workflow {
     def controlSet = controlIds as Set
     def defaultControl = (controlIds.size() == 1) ? controlIds[0] : null
 
-    def bamDir = file(params.chipfilter_output)
+    def bamDir = resolveBaseDir(params.chipfilter_output)
     assert bamDir.exists() : "chipfilter_output directory not found: ${params.chipfilter_output}"
 
     def resolveCleanBam = { sid ->
@@ -185,65 +131,42 @@ workflow {
         throw new IllegalArgumentException("No clean BAM found for sample_id '${sid}' under: ${params.chipfilter_output}")
       }
       if (hits.size() > 1) {
-        def names = hits.collect { it.name }.join(', ')
-        throw new IllegalArgumentException("Multiple clean BAM files matched sample_id '${sid}': ${names}")
+        throw new IllegalArgumentException("Multiple clean BAM files matched sample_id '${sid}': ${hits*.name.join(', ')}")
       }
       file(hits[0].toString())
     }
 
-    def autoWithControl = []
-    def autoNoControl = []
-
-    enabledRecords.findAll { rec -> isChip(rec) }.each { rec ->
+    def autoRows = enabledRecords.findAll { rec -> isChip(rec) }.collect { rec ->
       def sid = rec.sample_id?.toString()?.trim()
-      if (!sid) return
+      if (!sid) return null
 
       def treatBam = resolveCleanBam(sid)
       def cid = rec.control_id?.toString()?.trim()
       if (!cid && defaultControl) cid = defaultControl
-
-      if (cid) {
-        assert controlSet.contains(cid) : "control_id '${cid}' for sample '${sid}' is not an enabled control sample in samples_master"
-        def controlBam = resolveCleanBam(cid)
-        autoWithControl << tuple(sid, treatBam, controlBam)
-      } else {
-        if (!allow_no_control) {
-          throw new IllegalArgumentException("No control_id found for sample '${sid}'. Add control_id in samples_master or set --allow_no_control true.")
-        }
-        autoNoControl << tuple(sid, treatBam)
+      if (!cid) {
+        throw new IllegalArgumentException("No control_id found for sample '${sid}'. This nf-macs3 version requires control/input for all chip samples.")
       }
-    }
+      assert controlSet.contains(cid) : "control_id '${cid}' for sample '${sid}' is not an enabled control sample in samples_master"
+      def controlBam = resolveCleanBam(cid)
+      tuple(sid, treatBam, controlBam)
+    }.findAll { it != null }
 
-    def with_control_ch = Channel.fromList(autoWithControl)
-    if (!allow_no_control) {
-      with_control_ch = with_control_ch.ifEmpty { exit 1, "ERROR: No treatment/control pairs generated from samples_master: ${params.samples_master}" }
-    }
-    with_control_ch = with_control_ch.filter { sid, tbam, cbam ->
-        !(file("${outdir}/${sid}_peaks.${peak_ext}").exists() && file("${outdir}/${sid}_peaks.xls").exists())
-      }
-
-    macs3_with_control(with_control_ch)
-
-    if (allow_no_control) {
-      def no_control_ch = Channel
-        .fromList(autoNoControl)
-        .filter { sid, tbam ->
-          !(file("${outdir}/${sid}_peaks.${peak_ext}").exists() && file("${outdir}/${sid}_peaks.xls").exists())
-        }
-      macs3_no_control(no_control_ch)
-    }
+    rows = Channel
+      .fromList(autoRows)
+      .ifEmpty { exit 1, "ERROR: No treatment/control pairs generated from samples_master: ${params.samples_master}" }
   } else {
-    def treat_only = Channel
-      .fromPath("${params.chipfilter_output}/*.clean.bam", checkIfExists: true)
-      .ifEmpty { exit 1, "ERROR: No treatment BAM found under ${params.chipfilter_output}. Provide --macs3_samplesheet for treatment/control mode." }
-      .map { bam -> tuple(bam.simpleName, bam) }
-      .filter { sid, bam ->
-        !(file("${outdir}/${sid}_peaks.${peak_ext}").exists() && file("${outdir}/${sid}_peaks.xls").exists())
-      }
-
-    if (!allow_no_control) {
-      exit 1, "ERROR: Control BAM is required. Please provide --macs3_samplesheet with columns: sample_id,treatment_bam,control_bam ; or set --allow_no_control true."
-    }
-    macs3_no_control(treat_only)
+    exit 1, "ERROR: Provide --macs3_samplesheet or --samples_master. This nf-macs3 version requires control/input for all samples."
   }
+
+  def jobs = rows.flatMap { sample_id, treat_bam, control_bam ->
+    profiles.collect { prof ->
+      tuple(prof.profile_name, prof.qval, sample_id, treat_bam, control_bam)
+    }
+  }
+  .filter { profile_name, qval, sample_id, treat_bam, control_bam ->
+    def profDir = file("${outBase}/${profile_name}")
+    !(file("${profDir}/${sample_id}_peaks.${peak_ext}").exists() && file("${profDir}/${sample_id}_peaks.xls").exists())
+  }
+
+  macs3_callpeak(jobs)
 }
