@@ -19,7 +19,7 @@ process macs3_callpeak {
     tuple val(profile_name), val(qval), val(sample_id), path(treat_bam), path(control_bam)
 
   output:
-    tuple val(profile_name), val(sample_id), path("${sample_id}_peaks.*Peak")
+    tuple val(profile_name), val(sample_id), path("${sample_id}_peaks.*Peak"), emit: peaks
     path "${sample_id}_peaks.xls"
     path "${sample_id}_summits.bed", optional: true
     path "${sample_id}_treat_pileup.bdg", optional: true
@@ -56,6 +56,47 @@ process macs3_callpeak {
   """
 }
 
+process macs3_blacklist_peak {
+  tag "${profile_name}:${sample_id}"
+  stageInMode 'symlink'
+  stageOutMode 'move'
+
+  publishDir { "${params.project_folder}/${macs3_output}/${profile_name}" }, mode: 'copy', overwrite: true
+
+  input:
+    tuple val(profile_name), val(sample_id), path(peak_file)
+
+  output:
+    tuple val(profile_name), val(sample_id), path("${sample_id}_peaks.*Peak")
+    path "${sample_id}_peaks.blacklist_applied.txt"
+
+  script:
+  def frac = (params.peak_blacklist_fraction ?: 0.5).toString()
+  """
+  set -euo pipefail
+  in_peak="${peak_file}"
+  ext="\${in_peak##*.}"
+  out_peak="${sample_id}_peaks.\${ext}"
+
+  bedtools intersect -a "\$in_peak" -b ${params.peak_blacklist_bed} -v -f ${frac} \
+    | awk '\$1 ~ /^chr/' > "\$out_peak"
+
+  before_n=\$(wc -l < "\$in_peak" || echo 0)
+  after_n=\$(wc -l < "\$out_peak" || echo 0)
+
+  cat > ${sample_id}_peaks.blacklist_applied.txt << EOF
+profile\t${profile_name}
+sample_id\t${sample_id}
+input_peak\t\$in_peak
+output_peak\t\$out_peak
+blacklist_bed\t${params.peak_blacklist_bed}
+blacklist_fraction\t${frac}
+before_peaks\t\$before_n
+after_peaks\t\$after_n
+EOF
+  """
+}
+
 workflow {
   def peak_ext = (params.peak_type ?: '').contains('--broad') ? 'broadPeak' : 'narrowPeak'
   def outBase = resolveBaseDir(macs3_output)
@@ -64,6 +105,11 @@ workflow {
     [profile_name: 'idr_q0.1',     qval: (params.idr_qvalue ?: 0.1).toString()],
     [profile_name: 'strict_q0.01', qval: (params.strict_qvalue ?: 0.01).toString()]
   ]
+
+  if (params.peak_blacklist_bed) {
+    def bl = file(params.peak_blacklist_bed.toString())
+    assert bl.exists() : "peak_blacklist_bed not found: ${params.peak_blacklist_bed}"
+  }
 
   def rows
   if (params.macs3_samplesheet) {
@@ -165,8 +211,14 @@ workflow {
   }
   .filter { profile_name, qval, sample_id, treat_bam, control_bam ->
     def profDir = file("${outBase}/${profile_name}")
-    !(file("${profDir}/${sample_id}_peaks.${peak_ext}").exists() && file("${profDir}/${sample_id}_peaks.xls").exists())
+    def peakOk = file("${profDir}/${sample_id}_peaks.${peak_ext}").exists()
+    def xlsOk = file("${profDir}/${sample_id}_peaks.xls").exists()
+    def blOk = !params.peak_blacklist_bed || file("${profDir}/${sample_id}_peaks.blacklist_applied.txt").exists()
+    !(peakOk && xlsOk && blOk)
   }
 
-  macs3_callpeak(jobs)
+  def called = macs3_callpeak(jobs)
+  if (params.peak_blacklist_bed) {
+    macs3_blacklist_peak(called.peaks)
+  }
 }

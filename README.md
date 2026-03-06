@@ -9,8 +9,9 @@ For each ChIP sample:
 2. Run MACS3 twice by default:
    - `idr_q0.1` for the IDR branch
    - `strict_q0.01` for the consensus / DiffBind branch
-3. Write outputs into profile-specific subdirectories.
-4. Skip only profile/sample outputs that already exist.
+3. Filter called peaks against blacklist BED (`bedtools intersect -v`) for both profiles.
+4. Write outputs into profile-specific subdirectories.
+5. Skip only profile/sample outputs that already exist.
 
 ## Input Modes
 
@@ -51,8 +52,10 @@ Under `${project_folder}/${macs3_output}`:
 
 - `idr_q0.1/${sample}_peaks.narrowPeak`
 - `idr_q0.1/${sample}_peaks.xls`
+- `idr_q0.1/${sample}_peaks.blacklist_applied.txt`
 - `strict_q0.01/${sample}_peaks.narrowPeak`
 - `strict_q0.01/${sample}_peaks.xls`
+- `strict_q0.01/${sample}_peaks.blacklist_applied.txt`
 - plus optional side outputs in each profile directory:
   - `${sample}_summits.bed`
   - `${sample}_treat_pileup.bdg`
@@ -70,6 +73,8 @@ Under `${project_folder}/${macs3_output}`:
 - `keep_dup`: duplicate policy (default: `all`)
 - `call_summits`: whether to output summits (default: `true`)
 - `peak_type`: `''` (narrow) or `'--broad'`
+- `peak_blacklist_bed`: blacklist BED applied on called peaks (set to empty/null to disable)
+- `peak_blacklist_fraction`: overlap fraction used by `bedtools intersect -f` (default: `0.5`)
 
 ## Run
 
