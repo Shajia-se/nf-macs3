@@ -67,7 +67,7 @@ process macs3_blacklist_peak {
     tuple val(profile_name), val(sample_id), path(peak_file), path(blacklist_bed)
 
   output:
-    tuple val(profile_name), val(sample_id), path("${sample_id}_peaks.*Peak")
+    tuple val(profile_name), val(sample_id), path("${sample_id}_peaks.*Peak", includeInputs: true)
     path "${sample_id}_peaks.blacklist_applied.txt"
 
   script:
