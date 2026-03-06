@@ -64,7 +64,7 @@ process macs3_blacklist_peak {
   publishDir { "${params.project_folder}/${macs3_output}/${profile_name}" }, mode: 'copy', overwrite: true
 
   input:
-    tuple val(profile_name), val(sample_id), path(peak_file)
+    tuple val(profile_name), val(sample_id), path(peak_file), path(blacklist_bed)
 
   output:
     tuple val(profile_name), val(sample_id), path("${sample_id}_peaks.*Peak")
@@ -78,7 +78,7 @@ process macs3_blacklist_peak {
   ext="\${in_peak##*.}"
   out_peak="${sample_id}_peaks.\${ext}"
 
-  bedtools intersect -a "\$in_peak" -b ${params.peak_blacklist_bed} -v -f ${frac} \
+  bedtools intersect -a "\$in_peak" -b "\$blacklist_bed" -v -f ${frac} \
     | awk '\$1 ~ /^chr/' > "\$out_peak"
 
   before_n=\$(wc -l < "\$in_peak" || echo 0)
@@ -89,7 +89,7 @@ profile\t${profile_name}
 sample_id\t${sample_id}
 input_peak\t\$in_peak
 output_peak\t\$out_peak
-blacklist_bed\t${params.peak_blacklist_bed}
+  blacklist_bed\t\$blacklist_bed
 blacklist_fraction\t${frac}
 before_peaks\t\$before_n
 after_peaks\t\$after_n
@@ -219,6 +219,11 @@ workflow {
 
   def called = macs3_callpeak(jobs)
   if (params.peak_blacklist_bed) {
-    macs3_blacklist_peak(called.peaks)
+    def blPath = file(params.peak_blacklist_bed.toString())
+    def blCh = Channel.value(blPath)
+    def blInputs = called.peaks.combine(blCh).map { profile_name, sample_id, peak_file, blacklist_bed ->
+      tuple(profile_name, sample_id, peak_file, blacklist_bed)
+    }
+    macs3_blacklist_peak(blInputs)
   }
 }
