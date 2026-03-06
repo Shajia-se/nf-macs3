@@ -75,6 +75,7 @@ process macs3_blacklist_peak {
   """
   set -euo pipefail
   in_peak="${peak_file}"
+  blacklist_bed="${blacklist_bed}"
   ext="\${in_peak##*.}"
   out_peak="${sample_id}_peaks.\${ext}"
 
@@ -89,7 +90,7 @@ profile\t${profile_name}
 sample_id\t${sample_id}
 input_peak\t\$in_peak
 output_peak\t\$out_peak
-  blacklist_bed\t\$blacklist_bed
+blacklist_bed\t\$blacklist_bed
 blacklist_fraction\t${frac}
 before_peaks\t\$before_n
 after_peaks\t\$after_n
