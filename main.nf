@@ -105,7 +105,7 @@ workflow {
 
   def profiles = [
     [profile_name: 'idr_q0.1',     qval: (params.idr_qvalue ?: 0.1).toString()],
-    [profile_name: 'qc_q0.05',     qval: (params.qc_qvalue ?: 0.05).toString()],
+    [profile_name: 'consensus_q0.05', qval: (params.consensus_qvalue ?: 0.05).toString()],
     [profile_name: 'strict_q0.01', qval: (params.strict_qvalue ?: 0.01).toString()]
   ]
 
