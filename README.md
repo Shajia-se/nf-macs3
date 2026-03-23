@@ -6,8 +6,9 @@
 
 For each ChIP sample:
 1. Resolve treatment/control BAM pairs (explicit sheet or auto from `samples_master`).
-2. Run MACS3 twice by default:
+2. Run MACS3 three times by default:
    - `idr_q0.1` for the IDR branch
+   - `qc_q0.05` for QC / reporting peak-count summaries
    - `strict_q0.01` for the consensus / DiffBind branch
 3. Filter called peaks against blacklist BED (`bedtools intersect -v`) for both profiles.
 4. Write outputs into profile-specific subdirectories.
@@ -53,6 +54,9 @@ Under `${project_folder}/${macs3_output}`:
 - `idr_q0.1/${sample}_peaks.narrowPeak`
 - `idr_q0.1/${sample}_peaks.xls`
 - `idr_q0.1/${sample}_peaks.blacklist_applied.txt`
+- `qc_q0.05/${sample}_peaks.narrowPeak`
+- `qc_q0.05/${sample}_peaks.xls`
+- `qc_q0.05/${sample}_peaks.blacklist_applied.txt`
 - `strict_q0.01/${sample}_peaks.narrowPeak`
 - `strict_q0.01/${sample}_peaks.xls`
 - `strict_q0.01/${sample}_peaks.blacklist_applied.txt`
@@ -69,6 +73,7 @@ Under `${project_folder}/${macs3_output}`:
 - `seq`: `"paired"` (default) or `"single"`
 - `genome_size`: effective genome size argument for MACS3 (`mm` default)
 - `idr_qvalue`: q-value for IDR branch (default: `0.1`)
+- `qc_qvalue`: q-value for QC/reporting branch (default: `0.05`)
 - `strict_qvalue`: q-value for strict branch (default: `0.01`)
 - `keep_dup`: duplicate policy (default: `all`)
 - `call_summits`: whether to output summits (default: `true`)
@@ -97,3 +102,4 @@ nextflow run main.nf -profile hpc \
 - `nf-idr` should use `idr_q0.1`
 - `nf-diffbind` should use `strict_q0.01`
 - consensus peak modules should also use `strict_q0.01`
+- `qc_q0.05` is an extra reporting branch; it is not wired into downstream modules by default
