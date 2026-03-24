@@ -80,7 +80,7 @@ process macs3_blacklist_peak {
   out_peak="${sample_id}_peaks.\${ext}"
   tmp_out="${sample_id}_peaks.filtered.\${ext}"
 
-  bedtools intersect -a "\$in_peak" -b "\$blacklist_bed" -v -f ${frac} > "\$tmp_out"
+  bedtools intersect -a "\$in_peak" -b "\$blacklist_bed" -v -f ${frac} | awk '\$1 ~ /^chr/' > "\$tmp_out"
   mv "\$tmp_out" "\$out_peak"
 
   before_n=\$(wc -l < "\$in_peak" || echo 0)
