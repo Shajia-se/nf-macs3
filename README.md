@@ -86,6 +86,7 @@ Under `${project_folder}/${macs3_output}`:
 - `strict_qvalue`: q-value for strict branch (default: `0.01`)
 - `keep_dup`: duplicate policy (default: `all`)
 - `call_summits`: whether to output summits (default: `true`)
+- `write_bedgraph`: whether to ask MACS3 to write `*_treat_pileup.bdg` and `*_control_lambda.bdg` (default: `false`)
 - `peak_type`: `''` (narrow) or `'--broad'`
 - `peak_blacklist_bed`: blacklist BED applied on called peaks (set to empty/null to disable)
 - `peak_blacklist_fraction`: overlap fraction used by `bedtools intersect -f` (default: `0.5`)
@@ -122,3 +123,4 @@ No-input test mode via `samples_master`:
 
 - Runs with control/input are preferred for standard peak calling.
 - Runs without control are supported for testing or exploratory analysis, but they are expected to be less stringent.
+- `*.bdg` files are optional large intermediate-style outputs and are disabled by default in this pipeline.

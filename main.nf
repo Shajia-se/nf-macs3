@@ -29,6 +29,7 @@ process macs3_callpeak {
   def keep_dup = params.keep_dup ?: 'all'
   def call_summits = (params.call_summits == null || params.call_summits) ? '--call-summits' : ''
   def controlArg = control_bam ? "-c ${control_bam}" : ''
+  def bedgraphArg = (params.write_bedgraph == null || params.write_bedgraph) ? '-B' : ''
   """
   set -eux
   mkdir -p tmp
@@ -50,7 +51,7 @@ process macs3_callpeak {
     --keep-dup ${keep_dup} \\
     -g ${params.genome_size} \\
     -n ${sample_id} \\
-    -B \\
+    ${bedgraphArg} \\
     ${call_summits} \\
     --outdir . \\
     ${params.peak_type ?: ''}
