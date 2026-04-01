@@ -7,9 +7,9 @@
 For each ChIP sample:
 1. Resolve treatment BAMs and optional control BAMs (explicit sheet or auto from `samples_master`).
 2. Run MACS3 three times by default:
-   - `idr_q0.1` for the IDR branch
-   - `consensus_q0.05` for the relaxed consensus branch
-   - `strict_q0.01` for the consensus / DiffBind branch
+   - `idr_q<value>` for the IDR branch
+   - `consensus_q<value>` for the relaxed consensus branch
+   - `strict_q<value>` for the consensus / DiffBind branch
 3. Filter called peaks against blacklist BED (`bedtools intersect -v`) for both profiles.
 4. Write outputs into profile-specific subdirectories.
 5. Skip only profile/sample outputs that already exist.
@@ -60,15 +60,15 @@ Auto-pairing rules:
 
 Under `${project_folder}/${macs3_output}`:
 
-- `idr_q0.1/${sample}_peaks.narrowPeak`
-- `idr_q0.1/${sample}_peaks.xls`
-- `idr_q0.1/${sample}_peaks.blacklist_applied.txt`
-- `consensus_q0.05/${sample}_peaks.narrowPeak`
-- `consensus_q0.05/${sample}_peaks.xls`
-- `consensus_q0.05/${sample}_peaks.blacklist_applied.txt`
-- `strict_q0.01/${sample}_peaks.narrowPeak`
-- `strict_q0.01/${sample}_peaks.xls`
-- `strict_q0.01/${sample}_peaks.blacklist_applied.txt`
+- `idr_q<value>/${sample}_peaks.narrowPeak`
+- `idr_q<value>/${sample}_peaks.xls`
+- `idr_q<value>/${sample}_peaks.blacklist_applied.txt`
+- `consensus_q<value>/${sample}_peaks.narrowPeak`
+- `consensus_q<value>/${sample}_peaks.xls`
+- `consensus_q<value>/${sample}_peaks.blacklist_applied.txt`
+- `strict_q<value>/${sample}_peaks.narrowPeak`
+- `strict_q<value>/${sample}_peaks.xls`
+- `strict_q<value>/${sample}_peaks.blacklist_applied.txt`
 - plus optional side outputs in each profile directory:
   - `${sample}_summits.bed`
   - `${sample}_treat_pileup.bdg`
@@ -84,6 +84,9 @@ Under `${project_folder}/${macs3_output}`:
 - `idr_qvalue`: q-value for IDR branch (default: `0.1`)
 - `consensus_qvalue`: q-value for relaxed consensus branch (default: `0.05`)
 - `strict_qvalue`: q-value for strict branch (default: `0.01`)
+- `run_idr_branch`: enable IDR-oriented MACS3 branch (default: `true`)
+- `run_consensus_branch`: enable relaxed consensus MACS3 branch (default: `true`)
+- `run_strict_branch`: enable strict MACS3 branch (default: `true`)
 - `keep_dup`: duplicate policy (default: `all`)
 - `call_summits`: whether to output summits (default: `true`)
 - `write_bedgraph`: whether to ask MACS3 to write `*_treat_pileup.bdg` and `*_control_lambda.bdg` (default: `false`)

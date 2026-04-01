@@ -105,11 +105,21 @@ workflow {
   def peak_ext = (params.peak_type ?: '').contains('--broad') ? 'broadPeak' : 'narrowPeak'
   def outBase = resolveBaseDir(macs3_output)
 
-  def profiles = [
-    [profile_name: 'idr_q0.1',     qval: (params.idr_qvalue ?: 0.1).toString()],
-    [profile_name: 'consensus_q0.05', qval: (params.consensus_qvalue ?: 0.05).toString()],
-    [profile_name: 'strict_q0.01', qval: (params.strict_qvalue ?: 0.01).toString()]
-  ]
+  def runIdrBranch = (params.run_idr_branch == null) ? true : params.run_idr_branch.toString().toLowerCase() == 'true'
+  def runConsensusBranch = (params.run_consensus_branch == null) ? true : params.run_consensus_branch.toString().toLowerCase() == 'true'
+  def runStrictBranch = (params.run_strict_branch == null) ? true : params.run_strict_branch.toString().toLowerCase() == 'true'
+
+  def profiles = []
+  if (runIdrBranch) {
+    profiles << [profile_name: "idr_q${(params.idr_qvalue ?: 0.1).toString()}", qval: (params.idr_qvalue ?: 0.1).toString()]
+  }
+  if (runConsensusBranch) {
+    profiles << [profile_name: "consensus_q${(params.consensus_qvalue ?: 0.05).toString()}", qval: (params.consensus_qvalue ?: 0.05).toString()]
+  }
+  if (runStrictBranch) {
+    profiles << [profile_name: "strict_q${(params.strict_qvalue ?: 0.01).toString()}", qval: (params.strict_qvalue ?: 0.01).toString()]
+  }
+  assert !profiles.isEmpty() : "At least one MACS3 branch must be enabled (run_idr_branch/run_consensus_branch/run_strict_branch)"
 
   if (params.peak_blacklist_bed) {
     def bl = file(params.peak_blacklist_bed.toString())
