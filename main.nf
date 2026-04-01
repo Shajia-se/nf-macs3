@@ -16,7 +16,7 @@ process macs3_callpeak {
   publishDir { "${params.project_folder}/${macs3_output}/${profile_name}" }, mode: 'copy'
 
   input:
-    tuple val(profile_name), val(qval), val(sample_id), path(treat_bam), path(control_bam)
+    tuple val(profile_name), val(qval), val(sample_id), path(treat_bam), val(control_bam)
 
   output:
     tuple val(profile_name), val(sample_id), path("${sample_id}_peaks.*Peak"), emit: peaks
@@ -28,6 +28,7 @@ process macs3_callpeak {
   script:
   def keep_dup = params.keep_dup ?: 'all'
   def call_summits = (params.call_summits == null || params.call_summits) ? '--call-summits' : ''
+  def controlArg = control_bam ? "-c ${control_bam}" : ''
   """
   set -eux
   mkdir -p tmp
@@ -43,7 +44,7 @@ process macs3_callpeak {
 
   macs3 callpeak \\
     -t ${treat_bam} \\
-    -c ${control_bam} \\
+    ${controlArg} \\
     -f \$FORMAT \\
     -q ${qval} \\
     --keep-dup ${keep_dup} \\
@@ -120,11 +121,11 @@ workflow {
       .fromPath(params.macs3_samplesheet, checkIfExists: true)
       .splitCsv(header: true)
       .map { row ->
-        assert row.sample_id && row.treatment_bam && row.control_bam : "macs3_samplesheet must contain: sample_id,treatment_bam,control_bam"
+        assert row.sample_id && row.treatment_bam : "macs3_samplesheet must contain: sample_id,treatment_bam"
         tuple(
           row.sample_id.toString().trim(),
           file(row.treatment_bam.toString().trim()),
-          file(row.control_bam.toString().trim())
+          row.control_bam?.toString()?.trim() ?: ''
         )
       }
   } else if (params.samples_master) {
@@ -148,7 +149,6 @@ workflow {
     assert header : "samples_master header not found: ${params.samples_master}"
     assert header.contains('sample_id') : "samples_master missing required column: sample_id"
     assert header.contains('is_control') : "samples_master missing required column: is_control"
-    assert header.contains('control_id') : "samples_master missing required column: control_id"
 
     def isEnabled = { rec ->
       def v = rec.enabled?.toString()?.trim()?.toLowerCase()
@@ -192,19 +192,19 @@ workflow {
       def treatBam = resolveCleanBam(sid)
       def cid = rec.control_id?.toString()?.trim()
       if (!cid && defaultControl) cid = defaultControl
-      if (!cid) {
-        throw new IllegalArgumentException("No control_id found for sample '${sid}'. This nf-macs3 version requires control/input for all chip samples.")
+      def controlBam = ''
+      if (cid) {
+        assert controlSet.contains(cid) : "control_id '${cid}' for sample '${sid}' is not an enabled control sample in samples_master"
+        controlBam = resolveCleanBam(cid).toString()
       }
-      assert controlSet.contains(cid) : "control_id '${cid}' for sample '${sid}' is not an enabled control sample in samples_master"
-      def controlBam = resolveCleanBam(cid)
       tuple(sid, treatBam, controlBam)
     }.findAll { it != null }
 
     rows = Channel
       .fromList(autoRows)
-      .ifEmpty { exit 1, "ERROR: No treatment/control pairs generated from samples_master: ${params.samples_master}" }
+      .ifEmpty { exit 1, "ERROR: No treatment rows generated from samples_master: ${params.samples_master}" }
   } else {
-    exit 1, "ERROR: Provide --macs3_samplesheet or --samples_master. This nf-macs3 version requires control/input for all samples."
+    exit 1, "ERROR: Provide --macs3_samplesheet or --samples_master."
   }
 
   def jobs = rows.flatMap { sample_id, treat_bam, control_bam ->

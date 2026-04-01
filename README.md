@@ -5,7 +5,7 @@
 ## What This Module Does
 
 For each ChIP sample:
-1. Resolve treatment/control BAM pairs (explicit sheet or auto from `samples_master`).
+1. Resolve treatment BAMs and optional control BAMs (explicit sheet or auto from `samples_master`).
 2. Run MACS3 three times by default:
    - `idr_q0.1` for the IDR branch
    - `consensus_q0.05` for the relaxed consensus branch
@@ -19,7 +19,10 @@ For each ChIP sample:
 1. `--macs3_samplesheet`
 2. `--samples_master`
 
-This module now assumes all ChIP samples have a control/input BAM.
+This module now supports both:
+
+- standard ChIP-seq with control/input BAM
+- exploratory / test runs without control/input BAM
 
 ### Explicit samplesheet
 
@@ -28,24 +31,30 @@ CSV header:
 sample_id,treatment_bam,control_bam
 ```
 
+Notes:
+- `sample_id` and `treatment_bam` are required
+- `control_bam` is optional
+- if `control_bam` is empty, MACS3 runs without `-c`
+
 ### Auto from `samples_master`
 
 Required columns:
 ```text
-sample_id,is_control,control_id
+sample_id,is_control
 ```
 
 Optional columns used:
 ```text
-library_type,enabled
+library_type,enabled,control_id
 ```
 
 Auto-pairing rules:
 - enabled non-control `chip` rows become treatment samples
-- control BAM comes from `control_id`
+- control BAM comes from `control_id` when available
 - if `control_id` is empty and exactly one enabled control exists, it is used as default
 - BAM paths are resolved from `${chipfilter_output}/${sample_id}*.clean.bam`
-- missing or ambiguous BAM/control matches fail early
+- missing or ambiguous treatment BAM matches fail early
+- if no control is resolved, MACS3 runs without `-c`
 
 ## Output Layout
 
@@ -97,6 +106,10 @@ nextflow run main.nf -profile hpc \
   --chipfilter_output /path/to/nf-chipfilter/chipfilter_output
 ```
 
+No-input test mode via `samples_master`:
+- omit the input row, or leave chip `control_id` empty
+- MACS3 will run with treatment BAM only
+
 ## Downstream Branching
 
 - `nf-idr` should use `idr_q0.1`
@@ -104,3 +117,8 @@ nextflow run main.nf -profile hpc \
 - consensus peak modules should also use `strict_q0.01`
 - `strict_q0.01` is the default strict consensus branch for DiffBind and the existing consensus workflow
 - `consensus_q0.05` is the relaxed consensus branch for a parallel downstream analysis path
+
+## Interpretation Note
+
+- Runs with control/input are preferred for standard peak calling.
+- Runs without control are supported for testing or exploratory analysis, but they are expected to be less stringent.
