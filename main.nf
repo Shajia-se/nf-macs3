@@ -126,16 +126,36 @@ workflow {
     assert bl.exists() : "peak_blacklist_bed not found: ${params.peak_blacklist_bed}"
   }
 
+  def bamDir = resolveBaseDir(params.chipfilter_output)
+  assert bamDir.exists() : "chipfilter_output directory not found: ${params.chipfilter_output}"
+
+  def resolveNomultiBam = { sid ->
+    def hits = bamDir.listFiles()?.findAll { f ->
+      f.isFile() && f.name.endsWith('.nomulti.bam') && f.name.startsWith("${sid}")
+    } ?: []
+
+    if (hits.isEmpty()) {
+      throw new IllegalArgumentException("No MAPQ-filtered BAM found for sample_id '${sid}' under: ${params.chipfilter_output}")
+    }
+    if (hits.size() > 1) {
+      throw new IllegalArgumentException("Multiple MAPQ-filtered BAM files matched sample_id '${sid}': ${hits*.name.join(', ')}")
+    }
+    file(hits[0].toString())
+  }
+
   def rows
   if (params.macs3_samplesheet) {
     rows = Channel
       .fromPath(params.macs3_samplesheet, checkIfExists: true)
       .splitCsv(header: true)
       .map { row ->
-        assert row.sample_id && row.treatment_bam : "macs3_samplesheet must contain: sample_id,treatment_bam"
+        def sid = row.sample_id?.toString()?.trim()
+        assert sid : "macs3_samplesheet must contain at least: sample_id"
+        def treatBamPath = row.treatment_bam?.toString()?.trim()
+        def treatBam = treatBamPath ? file(treatBamPath) : resolveNomultiBam(sid)
         tuple(
-          row.sample_id.toString().trim(),
-          file(row.treatment_bam.toString().trim()),
+          sid,
+          treatBam,
           row.control_bam?.toString()?.trim() ?: ''
         )
       }
@@ -179,34 +199,17 @@ workflow {
     def controlSet = controlIds as Set
     def defaultControl = (controlIds.size() == 1) ? controlIds[0] : null
 
-    def bamDir = resolveBaseDir(params.chipfilter_output)
-    assert bamDir.exists() : "chipfilter_output directory not found: ${params.chipfilter_output}"
-
-    def resolveCleanBam = { sid ->
-      def hits = bamDir.listFiles()?.findAll { f ->
-        f.isFile() && f.name.endsWith('.nomulti.bam') && f.name.startsWith("${sid}")
-      } ?: []
-
-      if (hits.isEmpty()) {
-        throw new IllegalArgumentException("No MAPQ-filtered BAM found for sample_id '${sid}' under: ${params.chipfilter_output}")
-      }
-      if (hits.size() > 1) {
-        throw new IllegalArgumentException("Multiple MAPQ-filtered BAM files matched sample_id '${sid}': ${hits*.name.join(', ')}")
-      }
-      file(hits[0].toString())
-    }
-
     def autoRows = enabledRecords.findAll { rec -> isChip(rec) }.collect { rec ->
       def sid = rec.sample_id?.toString()?.trim()
       if (!sid) return null
 
-      def treatBam = resolveCleanBam(sid)
+      def treatBam = resolveNomultiBam(sid)
       def cid = rec.control_id?.toString()?.trim()
       if (!cid && defaultControl) cid = defaultControl
       def controlBam = ''
       if (cid) {
         assert controlSet.contains(cid) : "control_id '${cid}' for sample '${sid}' is not an enabled control sample in samples_master"
-        controlBam = resolveCleanBam(cid).toString()
+        controlBam = resolveNomultiBam(cid).toString()
       }
       tuple(sid, treatBam, controlBam)
     }.findAll { it != null }

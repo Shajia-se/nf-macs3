@@ -32,9 +32,13 @@ sample_id,treatment_bam,control_bam
 ```
 
 Notes:
-- `sample_id` and `treatment_bam` are required
+- `sample_id` is required
+- `treatment_bam` is optional
 - `control_bam` is optional
+- if `treatment_bam` is empty, the module resolves `${chipfilter_output}/${sample_id}*.nomulti.bam`
 - if `control_bam` is empty, MACS3 runs without `-c`
+
+This is useful when treatment BAMs are produced inside the same run, while control BAMs come from a shared external location.
 
 ### Auto from `samples_master`
 
