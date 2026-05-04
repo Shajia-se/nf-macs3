@@ -52,7 +52,7 @@ Auto-pairing rules:
 - enabled non-control `chip` rows become treatment samples
 - control BAM comes from `control_id` when available
 - if `control_id` is empty and exactly one enabled control exists, it is used as default
-- BAM paths are resolved from `${chipfilter_output}/${sample_id}*.clean.bam`
+- BAM paths are resolved from `${chipfilter_output}/${sample_id}*.nomulti.bam`
 - missing or ambiguous treatment BAM matches fail early
 - if no control is resolved, MACS3 runs without `-c`
 
@@ -78,7 +78,7 @@ Under `${project_folder}/${macs3_output}`:
 
 - `macs3_samplesheet`: explicit treatment/control sheet
 - `samples_master`: auto-pairing source
-- `chipfilter_output`: location of `*.clean.bam`
+- `chipfilter_output`: location of `*.nomulti.bam`
 - `seq`: `"paired"` (default) or `"single"`
 - `genome_size`: effective genome size argument for MACS3 (`mm` default)
 - `idr_qvalue`: q-value for IDR branch (default: `0.1`)

@@ -184,14 +184,14 @@ workflow {
 
     def resolveCleanBam = { sid ->
       def hits = bamDir.listFiles()?.findAll { f ->
-        f.isFile() && f.name.endsWith('.clean.bam') && f.name.startsWith("${sid}")
+        f.isFile() && f.name.endsWith('.nomulti.bam') && f.name.startsWith("${sid}")
       } ?: []
 
       if (hits.isEmpty()) {
-        throw new IllegalArgumentException("No clean BAM found for sample_id '${sid}' under: ${params.chipfilter_output}")
+        throw new IllegalArgumentException("No MAPQ-filtered BAM found for sample_id '${sid}' under: ${params.chipfilter_output}")
       }
       if (hits.size() > 1) {
-        throw new IllegalArgumentException("Multiple clean BAM files matched sample_id '${sid}': ${hits*.name.join(', ')}")
+        throw new IllegalArgumentException("Multiple MAPQ-filtered BAM files matched sample_id '${sid}': ${hits*.name.join(', ')}")
       }
       file(hits[0].toString())
     }
