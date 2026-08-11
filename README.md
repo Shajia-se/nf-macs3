@@ -283,6 +283,8 @@ If provided, peaks overlapping the blacklist are removed with Bedtools and a rep
 sample_peaks.blacklist_applied.txt
 ```
 
+The blacklist BED must match the same genome build and chromosome naming style as the BAM/reference, for example `chr1` vs `1`.
+
 If `peak_blacklist_bed` is empty or not provided, blacklist filtering is skipped.
 
 ## Output
