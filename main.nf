@@ -105,6 +105,10 @@ workflow {
   def peak_ext = (params.peak_type ?: '').contains('--broad') ? 'broadPeak' : 'narrowPeak'
   def outBase = resolveBaseDir(macs3_output)
 
+  if (!params.chipfilter_output) {
+    exit 1, "ERROR: --chipfilter_output must be provided. This should usually be the nf-chipfilter output folder."
+  }
+
   def runIdrBranch = (params.run_idr_branch == null) ? true : params.run_idr_branch.toString().toLowerCase() == 'true'
   def runConsensusBranch = (params.run_consensus_branch == null) ? true : params.run_consensus_branch.toString().toLowerCase() == 'true'
   def runStrictBranch = (params.run_strict_branch == null) ? true : params.run_strict_branch.toString().toLowerCase() == 'true'
@@ -153,10 +157,15 @@ workflow {
         assert sid : "macs3_samplesheet must contain at least: sample_id"
         def treatBamPath = row.treatment_bam?.toString()?.trim()
         def treatBam = treatBamPath ? file(treatBamPath) : resolveNomultiBam(sid)
+        assert treatBam.exists() : "Treatment BAM not found for sample '${sid}': ${treatBam}"
+        def controlBamPath = row.control_bam?.toString()?.trim() ?: ''
+        if (controlBamPath) {
+          assert file(controlBamPath).exists() : "Control BAM not found for sample '${sid}': ${controlBamPath}"
+        }
         tuple(
           sid,
           treatBam,
-          row.control_bam?.toString()?.trim() ?: ''
+          controlBamPath
         )
       }
   } else if (params.samples_master) {
