@@ -13,7 +13,7 @@ process macs3_callpeak {
   stageInMode 'symlink'
   stageOutMode 'move'
 
-  publishDir { "${params.project_folder}/${macs3_output}/${profile_name}" }, mode: 'copy'
+  publishDir "${params.project_folder}/${macs3_output}/${profile_name}", mode: 'copy'
 
   input:
     tuple val(profile_name), val(qval), val(sample_id), path(treat_bam), val(control_bam)
@@ -63,7 +63,7 @@ process macs3_blacklist_peak {
   stageInMode 'symlink'
   stageOutMode 'move'
 
-  publishDir { "${params.project_folder}/${macs3_output}/${profile_name}" }, mode: 'copy', overwrite: true
+  publishDir "${params.project_folder}/${macs3_output}/${profile_name}", mode: 'copy', overwrite: true
 
   input:
     tuple val(profile_name), val(sample_id), path(peak_file), path(blacklist_bed)
